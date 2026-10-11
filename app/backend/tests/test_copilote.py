@@ -359,3 +359,59 @@ def test_api_lean(client):
     assert client.patch(f"/api/lean/actions/{aid}", json={"statut": "EN_COURS"}).get_json()["statut"] == "EN_COURS"
     acts = client.get("/api/lean/actions").get_json()
     assert any(a["action_id"] == aid for a in acts["actions"]) and acts["artefacts"][0]["type"] == "indicateurs"
+
+
+# ---------------------------------------------------------------- Prévision de charge
+import prevision as P
+
+
+def test_prevision_tableau_et_renfort(entrepot):
+    t = P.tableau(entrepot, "TOUS")
+    assert t["periode"]["jours_ouvres"] >= 18 and t["total_lignes"] > 0
+    assert 4 <= len(t["semaines"]) <= 5
+    # le renfort agrégé par semaine ne dépasse jamais le pic d'un jour
+    for s in t["semaines"]:
+        assert s["renfort_securite_max"] >= s["renfort_max"] >= 0
+    # les jours à renforcer ont bien un renfort strictement positif
+    assert all(j["renfort_etp"] > 0 for j in t["jours_tension"])
+    with pytest.raises(ErreurDonnees):
+        P.tableau(entrepot, "WEEKEND")
+
+
+def test_prevision_lundi_plus_charge(entrepot):
+    # la charge du lundi doit dépasser celle du vendredi (rattrapage du week-end)
+    jours = {l["jour"][:10]: l for l in entrepot.prevision_charge() if l["equipe"] == "TOUS" and l["jour_ouvre"]}
+    import datetime as dt
+    lundis = [v["lignes_prevues"] for k, v in jours.items() if dt.date.fromisoformat(k).weekday() == 0]
+    vendredis = [v["lignes_prevues"] for k, v in jours.items() if dt.date.fromisoformat(k).weekday() == 4]
+    assert sum(lundis) / len(lundis) > sum(vendredis) / len(vendredis)
+
+
+def test_prevision_qualite_bat_naif(entrepot):
+    q = {r["equipe"]: r for r in P.qualite(entrepot)}
+    assert q["TOUS"]["wape_modele_pct"] < q["TOUS"]["wape_naive_pct"]   # le modèle bat la méthode simple
+    assert q["TOUS"]["gagne_sur_naif"] is True
+
+
+def test_prevision_compact_pour_modele(entrepot):
+    c = P.compact(entrepot, "NUIT")
+    assert c["equipe"] == "NUIT" and 4 <= len(c["par_semaine"]) <= 5
+    assert "renfort_etp_max" in c["par_semaine"][0]
+    assert c["fiabilite"]["wape_modele_pct"] is not None
+
+
+def test_outil_et_api_prevision(entrepot, client):
+    o = O.Outils(entrepot)
+    res, art, err = o.executer("prevision_charge", {"equipe": "NUIT"})
+    assert err is None and res["equipe"] == "NUIT"
+    assert [a["type"] for a in art][:2] == ["indicateurs", "prevision"]
+    r = client.get("/api/prevision?equipe=TOUS").get_json()
+    assert r["total_lignes"] > 0 and any(a["type"] == "prevision" for a in r["artefacts"])
+    assert client.get("/api/prevision/qualite").get_json()["modele"]
+
+
+def test_moteur_demo_prevision(entrepot):
+    agent = Agent(MoteurDemo(), O.Outils(entrepot), O.DECLARATIONS)
+    r = agent.repondre("Combien d'intérimaires la semaine prochaine ?", [])
+    assert r["outils"][0]["outil"] == "prevision_charge"
+    assert "prevision" in [a["type"] for a in r["artefacts"]]

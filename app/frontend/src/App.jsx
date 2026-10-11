@@ -4,7 +4,7 @@ import { api, enregistrerCode } from "./api.js";
 import { TraceProvider } from "./components/Trace.jsx";
 import { ThemeProvider, useTheme } from "./theme.jsx";
 import Actions from "./pages/Actions.jsx";
-import Bientot from "./pages/Bientot.jsx";
+import Prevision from "./pages/Prevision.jsx";
 import Copilote from "./pages/Copilote.jsx";
 import Fiabilite from "./pages/Fiabilite.jsx";
 import Kpi from "./pages/Kpi.jsx";
@@ -14,7 +14,7 @@ const NAV = [
   { to: "/fiabilite", label: "Fiabilité", icone: "✓" },
   { to: "/kpi", label: "KPI", icone: "▤" },
   { to: "/actions", label: "Dérives et actions", icone: "↯" },
-  { to: "/prevision", label: "Prévision", icone: "◷", bientot: true },
+  { to: "/prevision", label: "Prévision", icone: "◷" },
 ];
 
 export default function App() {
@@ -84,9 +84,7 @@ function Application() {
             <Route path="/fiabilite" element={<Fiabilite />} />
             <Route path="/kpi" element={<Kpi />} />
             <Route path="/actions" element={<Actions />} />
-            <Route path="/prevision" element={<Bientot titre="Prévision de charge" couche={6}
-              contenu={["Volume de lignes prévu pour les prochains jours (BigQuery ML)", "Heures et effectif nécessaires d'après les standards de productivité",
-                        "Risques de rupture à partir du stock, des réceptions attendues et de la demande prévue"]} />} />
+            <Route path="/prevision" element={<Prevision />} />
             <Route path="*" element={<Navigate to="/copilote" replace />} />
           </Routes>
         </main>

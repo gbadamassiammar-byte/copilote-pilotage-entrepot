@@ -21,6 +21,8 @@ Endpoints :
   GET  /api/lean/actions                 plan d'actions avec efficacité
   POST /api/lean/actions                 {derive_id, cause_identifiee, action, responsable, echeance, date_effet?}
   PATCH /api/lean/actions/<id>           {statut?, commentaire?, responsable?, echeance?, date_effet?}
+  GET  /api/prevision?equipe=            prévision de charge + besoin en renfort
+  GET  /api/prevision/qualite            backtest (WAPE modèle contre méthode naïve)
 
 En production, Flask sert aussi l'application React compilée (dossier static/).
 Lancement local : python app.py  (ou : flask --app app run --port 8080)
@@ -35,6 +37,7 @@ from flask import Flask, jsonify, request, send_from_directory
 import config as C
 import kpi as K
 import lean as L
+import prevision as P
 import outils as O
 from agent import Agent, ErreurModele
 from entrepot import ErreurDonnees
@@ -223,6 +226,18 @@ def creer_app(entrepot=None, moteur=None, historique=None):
     @app.patch("/api/lean/actions/<action_id>")
     def lean_maj_action(action_id):
         return jsonify(L.modifier_action(entrepot, action_id, request.get_json(silent=True) or {}))
+
+    @app.get("/api/prevision")
+    def prevision():
+        equipe = request.args.get("equipe", "TOUS")
+        t = P.tableau(entrepot, equipe)
+        s = P.serie(entrepot, equipe)
+        return jsonify({**t, "serie": s, "qualite": P.qualite(entrepot),
+                        "artefacts": O.artefacts_prevision(t, P.qualite(entrepot), s)})
+
+    @app.get("/api/prevision/qualite")
+    def prevision_qualite():
+        return jsonify({"qualite": P.qualite(entrepot), "modele": entrepot.prevision_modele()})
 
     # ------------------------------------------------------------------
     # Application React compilée (production). En développement, c'est le

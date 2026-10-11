@@ -17,6 +17,7 @@ import time
 
 import kpi as K
 import lean as L
+import prevision as P
 from entrepot import ErreurDonnees
 
 DECLARATIONS = [
@@ -172,6 +173,21 @@ DECLARATIONS = [
                 "date_effet": {"type": "string", "description": "AAAA-MM-JJ, date de mise en oeuvre (optionnelle)."},
             },
             "required": ["derive_id", "cause_identifiee", "action", "responsable", "echeance"],
+        },
+    },
+    {
+        "name": "prevision_charge",
+        "description": (
+            "Prévision de la charge de préparation pour les 4 prochaines semaines (modèle ARIMA_PLUS de BigQuery ML) : "
+            "nombre de lignes à préparer par jour et par semaine, pour le site ou une équipe (matin, après-midi, nuit), "
+            "traduit en heures de picking nécessaires et en renfort (intérim) par rapport à l'effectif habituel. "
+            "Donne aussi les jours à renforcer et la fiabilité du modèle (erreur sur les 4 dernières semaines). "
+            "A utiliser pour « combien d'intérimaires la semaine prochaine », « quels jours seront chargés », la planification."),
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "equipe": {"type": "string", "enum": P.EQUIPES, "description": "TOUS (site entier) par défaut, ou une équipe."},
+            },
         },
     },
     {
@@ -608,6 +624,57 @@ def artefacts_actions(actions):
 
 
 # ----------------------------------------------------------------------
+# Artefacts prévision
+# ----------------------------------------------------------------------
+def artefacts_prevision(t, q, s):
+    semaines = t["semaines"]
+    renfort_total = sum(x["renfort_max"] for x in semaines)
+    qe = {r["equipe"]: r for r in q}.get(t["equipe"], {})
+    sortie = [
+        {"type": "indicateurs", "titre": f"Charge prévue ({t['libelle_equipe']}) du {_date_fr(t['periode']['debut'])} au {_date_fr(t['periode']['fin'])}",
+         "items": [
+             {"label": "Lignes à préparer", "valeur": t["total_lignes"], "format": "nombre"},
+             {"label": "Jours ouvrés", "valeur": t["periode"]["jours_ouvres"], "format": "nombre"},
+             {"label": "Jours à renforcer", "valeur": len(t["jours_tension"]),
+              "ton": "alerte" if t["jours_tension"] else "ok"},
+             {"label": "Fiabilité (erreur)", "valeur": f"{qe.get('wape_modele_pct')} %".replace(".", ",") if qe.get("wape_modele_pct") is not None else "n.d.",
+              "detail": f"méthode simple : {qe.get('wape_naive_pct')} %".replace(".", ",") if qe.get("wape_naive_pct") is not None else None,
+              "ton": "ok" if qe.get("gagne_sur_naif") else "neutre"},
+         ], "note": "Renfort = postes à ajouter à l'équipe habituelle. Prévision indicative, à confirmer la veille."},
+        _courbe_prevision(s),
+        {"type": "tableau", "titre": "Par semaine", "colonnes": [
+            {"cle": "semaine", "label": "Semaine du", "format": "date"},
+            {"cle": "lignes", "label": "Lignes", "format": "nombre"},
+            {"cle": "heures", "label": "Heures picking", "format": "nombre"},
+            {"cle": "heures_habituelles", "label": "Heures habituelles", "format": "nombre"},
+            {"cle": "renfort_max", "label": "Renfort (postes)", "format": "nombre"},
+            {"cle": "renfort_securite_max", "label": "dont sécurité", "format": "nombre"}],
+         "lignes": [{"semaine": x["semaine"], "lignes": round(x["lignes"]), "heures": round(x["heures"]),
+                     "heures_habituelles": round(x["heures_habituelles"]), "renfort_max": x["renfort_max"],
+                     "renfort_securite_max": x["renfort_securite_max"]} for x in semaines]},
+    ]
+    if t["jours_tension"]:
+        sortie.append({"type": "tableau", "titre": "Jours à renforcer", "colonnes": [
+            {"cle": "jour", "label": "Jour", "format": "date"}, {"cle": "jour_semaine", "label": ""},
+            {"cle": "lignes_prevues", "label": "Lignes", "format": "nombre"},
+            {"cle": "heures_necessaires", "label": "Heures", "format": "nombre"},
+            {"cle": "heures_habituelles", "label": "Habituel", "format": "nombre"},
+            {"cle": "renfort_etp", "label": "Renfort", "format": "nombre"},
+            {"cle": "renfort_securite_etp", "label": "Sécurité", "format": "nombre"}],
+         "lignes": t["jours_tension"]})
+    return sortie
+
+
+def _courbe_prevision(s):
+    hist = [{"x": h["jour"][:10] if isinstance(h["jour"], str) else h["jour"].isoformat(), "reel": h["reel"]} for h in s["historique"]]
+    prev = [{"x": p["jour"][:10] if isinstance(p["jour"], str) else p["jour"].isoformat(),
+             "prevu": p["prevu"], "bande": [p["borne_basse"], p["borne_haute"]]} for p in s["prevision"]]
+    return {"type": "prevision", "titre": f"Lignes par jour ({s['libelle_equipe']})",
+            "historique": hist, "prevision": prev,
+            "note": "Trait plein : réel passé. Pointillé : prévision. Bande : intervalle à 90 %."}
+
+
+# ----------------------------------------------------------------------
 # Résultats compacts pour le modèle
 # ----------------------------------------------------------------------
 def compact_synthese(s):
@@ -674,6 +741,11 @@ class Outils:
             if nom == "creer_action":
                 a = L.creer_action(self.e, args, cree_par="copilote")
                 return {"action_creee": a}, [_tableau_actions([a], "Action enregistrée")], None
+            if nom == "prevision_charge":
+                equipe = (args.get("equipe") or "TOUS").upper()
+                t = P.tableau(self.e, equipe)
+                s = P.serie(self.e, equipe)
+                return P.compact(self.e, equipe), artefacts_prevision(t, P.qualite(self.e), s), None
             if nom == "lancer_controles":
                 d = self.e.lancer_controles(args.get("regle_id"))
                 return d, artefacts_controles(d), None

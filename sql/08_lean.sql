@@ -178,7 +178,7 @@ BEGIN
   -- -------------------------------------------------------------------
   -- 2. Episodes, regroupement en incidents, mise à jour de sc_lean.derives
   -- -------------------------------------------------------------------
-  CREATE TEMP TABLE incidents AS
+  CREATE OR REPLACE TEMP TABLE incidents AS
   -- DEBUT incidents
   WITH fin_donnees AS (
     SELECT MAX(date_kpi) AS d FROM sc_kpi.kpi_jour
@@ -234,6 +234,19 @@ BEGIN
       MIN(debut) OVER (PARTITION BY famille, incident) AS debut_incident,
       MAX(fin) OVER (PARTITION BY famille, incident) AS fin_incident
     FROM groupes
+  ),
+  -- signaux liés : les autres épisodes du même incident (agrégés puis joints,
+  -- BigQuery n'accepte pas ici une sous-requête corrélée)
+  signaux AS (
+    SELECT famille, incident,
+      TO_JSON(ARRAY_AGG(STRUCT(kpi_code, perimetre_type, perimetre_valeur, debut, fin,
+                               ROUND(valeur_observee, 3) AS valeur_observee,
+                               ROUND(valeur_reference, 3) AS valeur_reference,
+                               ROUND(z_max, 1) AS z_max, unite)
+                        ORDER BY z_max DESC)) AS signaux
+    FROM classes
+    WHERE rang > 1
+    GROUP BY famille, incident
   )
   SELECT
     CONCAT('DER-', UPPER(SUBSTR(TO_HEX(MD5(CONCAT(p.kpi_code, '|', p.perimetre_type, '|', p.perimetre_valeur, '|',
@@ -245,14 +258,9 @@ BEGIN
     CASE WHEN p.z_max >= 8 OR (p.z_max >= 4 AND p.nb_semaines >= 3) THEN 'CRITIQUE'
          WHEN p.z_max >= 4 OR p.nb_semaines >= 2 THEN 'MAJEURE'
          ELSE 'MINEURE' END AS gravite,
-    (SELECT TO_JSON(ARRAY_AGG(STRUCT(s.kpi_code, s.perimetre_type, s.perimetre_valeur, s.debut, s.fin,
-                                     ROUND(s.valeur_observee, 3) AS valeur_observee,
-                                     ROUND(s.valeur_reference, 3) AS valeur_reference,
-                                     ROUND(s.z_max, 1) AS z_max, s.unite)
-                              ORDER BY s.z_max DESC))
-     FROM classes AS s
-     WHERE s.famille = p.famille AND s.incident = p.incident AND s.rang > 1) AS signaux
+    sg.signaux
   FROM classes AS p
+  LEFT JOIN signaux AS sg ON sg.famille = p.famille AND sg.incident = p.incident
   WHERE p.rang = 1
   -- FIN incidents
   ;

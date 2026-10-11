@@ -20,6 +20,7 @@ from collections import Counter, defaultdict
 
 from agent import ReponseModele
 import kpi as K
+import prevision as P
 from outils import _date_fr, fmt_kpi
 from entrepot import (ErreurDonnees, construire_synthese, normaliser_action, normaliser_commande,
                       normaliser_derive, normaliser_lot, normaliser_regle)
@@ -212,6 +213,29 @@ class EntrepotDemo:
                 raise ErreurDonnees(f"La dérive {derive_id} est introuvable.")
             d.update({k: v for k, v in champs.items() if v is not None})
         return self.lean_derive(derive_id)
+    # ------------------------------------------------------------------
+    # Prévision de charge : lecture de l'instantané
+    # ------------------------------------------------------------------
+    def _prev(self):
+        if "prevision" not in self.d:
+            raise ErreurDonnees("L'instantané de démo ne contient pas la prévision.")
+        return self.d["prevision"]
+
+    def prevision_charge(self):
+        return copy.deepcopy(self._prev()["charge"])
+
+    def prevision_qualite(self):
+        return copy.deepcopy(self._prev()["qualite"])
+
+    def prevision_backtest(self, equipe="TOUS"):
+        return [copy.deepcopy(r) for r in self._prev()["backtest"] if r["equipe"] == equipe]
+
+    def prevision_modele(self):
+        return copy.deepcopy(self._prev()["modele"])
+
+    def prevision_historique(self, equipe="TOUS", jours=120):
+        return [{"jour": r["jour"], "lignes": r["lignes"]} for r in self._prev()["historique"] if r["equipe"] == equipe]
+
 
 MOTS_REGLES = [
     (("fefo", "périm", "perim"), "DQ_CNF_001"), (("rappel",), "DQ_CNF_002"),
@@ -246,7 +270,7 @@ class MoteurDemo:
         if dernier["role"] == "outil":
             return ReponseModele(texte=self._rediger(dernier["reponses"][0]))
         return ReponseModele(texte="Mode démo : je ne peux répondre qu'aux questions sur la fiabilité des données, "
-                                   "une commande (CMD...), un lot (LOT...) ou les indicateurs (OTIF, erreurs de préparation...).")
+                                   "une commande (CMD...), un lot (LOT...), les indicateurs, les dérives ou la prévision de charge.")
 
     def _choisir(self, q):
         ql = q.lower()
@@ -268,6 +292,10 @@ class MoteurDemo:
             return {"nom": "plan_actions", "args": {}}
         if any(x in ql for x in ("dérive", "derive", "dérapage", "hors contrôle", "anormal", "routine")):
             return {"nom": "derives_detectees", "args": {}}
+        if any(x in ql for x in ("prévision", "prevision", "prévoir", "charge", "intérim", "interim", "renfort",
+                                 "semaine prochaine", "planifier", "planification", "combien de prépa")):
+            eq = next((v for k, v in {"nuit": "NUIT", "matin": "MATIN", "après-midi": "APRES_MIDI", "apres-midi": "APRES_MIDI"}.items() if k in ql), "TOUS")
+            return {"nom": "prevision_charge", "args": {"equipe": eq}}
         kpi = self._choisir_kpi(ql)
         if kpi:
             return kpi
@@ -410,6 +438,24 @@ class MoteurDemo:
                     "voir le tableau.\n\n*Réponse générée en mode démo, sans Gemini.*")
         if nom == "creer_action":
             return "Action enregistrée (en mémoire, mode démo).\n\n*Réponse générée en mode démo, sans Gemini.*"
+        if nom == "prevision_charge":
+            p = r["periode"]
+            nb_renfort = len(r["jours_a_renforcer"])
+            fiab = r["fiabilite"]
+            libelle = P.LIBELLES_EQUIPE.get(r['equipe'], r['equipe'])
+            total = f"{r['total_lignes_prevues']:,}".replace(",", " ")
+            texte = (f"Sur les 4 prochaines semaines (du {_date_fr(p['debut'])} au {_date_fr(p['fin'])}), "
+                     f"**{total} lignes** à préparer pour {'le site' if r['equipe'] == 'TOUS' else libelle.lower()}.")
+            if nb_renfort:
+                js = ", ".join(f"{j['jour_semaine']} {_date_fr(j['jour'])} (+{j['renfort_etp']})" for j in r["jours_a_renforcer"][:4])
+                texte += f" **{nb_renfort} jour(s) à renforcer** : {js}."
+            else:
+                texte += " Aucun renfort nécessaire au-delà de l'effectif habituel."
+            if fiab.get("wape_modele_pct") is not None:
+                texte += (f"\n\nFiabilité : erreur moyenne de {str(fiab['wape_modele_pct']).replace('.', ',')} % sur les 4 dernières semaines"
+                          + (f", contre {str(fiab['wape_naive_pct']).replace('.', ',')} % pour une méthode simple" if fiab.get("wape_naive_pct") else "")
+                          + ". Prévision indicative, à confirmer la veille.")
+            return texte + "\n\n*Réponse générée en mode démo, sans Gemini.*"
         if nom == "lancer_controles":
             return (f"{len(r['regles_executees'])} règles exécutées (simulation en mode démo, aucune requête réelle).")
         return "Résultat disponible dans le panneau."

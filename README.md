@@ -85,8 +85,8 @@ retrouve 91 % des prélèvements non conformes avec 99,6 % de précision.
 
 ## Etape 4 : agent copilote et interface web
 
-Dossier `app/` : API REST Flask, agent Gemini (Vertex AI) avec 12 outils sur BigQuery, historique
-Firestore, interface React (pages Copilote, Fiabilité, KPI, Dérives et actions), thème clair ou sombre. Installation et fonctionnement : `app/README.md`.
+Dossier `app/` : API REST Flask, agent Gemini (Vertex AI) avec 13 outils sur BigQuery, historique
+Firestore, interface React (pages Copilote, Fiabilité, KPI, Dérives et actions, Prévision), thème clair ou sombre. Installation et fonctionnement : `app/README.md`.
 
 ## Etape 5 : KPI OMS avec traçabilité
 
@@ -150,6 +150,35 @@ Résultats sur les données simulées (12 mois) : 21 incidents, soit environ 2 p
 
 `SELECT * FROM sc_eval.v_evaluation_derives;` refait cette évaluation dans BigQuery.
 
+## Etape 7 : prévision de charge (BigQuery ML)
+
+Exécuter `sql/09_prevision.sql`, puis `CALL sc_ml.prevoir_charge();` (après `CALL sc_kpi.calculer_kpi();`).
+
+On prévoit le nombre de lignes à préparer par jour et par équipe sur les 4 prochaines semaines, puis on le
+traduit en heures de picking et en renfort (intérim) par rapport à l'effectif habituel.
+
+**Modèle** : ARIMA_PLUS de BigQuery ML, une série par équipe. Il décompose chaque série en tendance +
+saisonnalité hebdomadaire (le lundi est le jour le plus chargé, rattrapage du week-end) + effet des jours
+fériés français, puis choisit le meilleur ARIMA pour le reste. Les jours fermés sont mis à 0.
+
+**Du volume au renfort** : heures nécessaires = lignes prévues / productivité réelle récente. On compare aux
+heures de picking habituellement consacrées ce jour de semaine. Les opérateurs sont polyvalents (picking,
+rangement, contrôle), donc seul le surplus au-delà de l'habitude devient un renfort en équivalents temps plein.
+
+**Contrôle de qualité (backtest)** : un premier modèle est entraîné sans les 4 dernières semaines, qui sont
+ensuite prévues et comparées au réel et à une méthode naïve (moyenne des 4 mêmes jours de semaine précédents).
+L'erreur est mesurée en WAPE (somme des écarts absolus / somme du réel).
+
+| Equipe | WAPE modèle | WAPE méthode naïve |
+|---|---|---|
+| Site entier | 14,3 % | 18,6 % |
+| Matin | 15,3 % | 16,6 % |
+| Après-midi | 16,7 % | 18,8 % |
+| Nuit | 15,8 % | 26,5 % |
+
+Le modèle bat la méthode simple partout, surtout la nuit (forte saisonnalité du lundi).
+`SELECT * FROM sc_ml.qualite_prevision;` refait cette mesure dans BigQuery.
+
 ## Feuille de route
 
 1. Modèle de données et DDL  (fait)
@@ -158,5 +187,5 @@ Résultats sur les données simulées (12 mois) : 21 incidents, soit environ 2 p
 4. Agent Gemini + interface web React  (fait en local ; mise en ligne Cloud Run à venir)
 5. KPI OMS et traçabilité (3 nouveaux outils de l'agent, page KPI)  (fait)
 6. Détection de dérives, analyse des causes et plan d'actions (4 nouveaux outils, page Dérives et actions)  (fait)
-7. Prévision de charge (BigQuery ML)
+7. Prévision de charge (BigQuery ML) : 1 nouvel outil, page Prévision  (fait)
 8. Mise en ligne Cloud Run, restitution Looker Studio et Power BI

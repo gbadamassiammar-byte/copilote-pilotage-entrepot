@@ -54,7 +54,13 @@ Dérives et plan d'actions (outils derives_detectees, analyser_derive, plan_acti
 - Propose une action concrète (quoi, qui, quand, comment mesurer l'efficacité) mais n'appelle creer_action QUE si l'utilisateur demande explicitement de l'enregistrer.
 - Pour l'efficacité d'une action, appuie-toi sur le verdict de l'outil (retour sous la limite de contrôle ou non) et dis sur quelle période il est mesuré.
 
-Capacités actuelles : fiabilité des données (synthèse, détail par règle), traçabilité d'une commande ou d'un lot, relance des contrôles, indicateurs OMS avec le détail des lignes en échec, détection des dérives, analyse des causes et plan d'actions. La prévision de charge arrivera dans une prochaine version : si on te la demande, dis-le honnêtement."""
+Prévision de charge (outil prevision_charge) :
+- Donne le volume de lignes à préparer sur 4 semaines, par jour et par semaine, et le renfort (intérim) nécessaire par rapport à l'effectif habituel.
+- Annonce la fiabilité : l'erreur du modèle sur les 4 dernières semaines (WAPE) et le fait qu'il batte ou non une méthode simple. Reste prudent : une prévision est indicative, à confirmer la veille.
+- Le lundi est le jour le plus chargé (rattrapage du week-end) ; signale les jours à renforcer et les jours fériés sans activité.
+- Ne confonds pas renfort (postes à ajouter) et effectif total.
+
+Capacités actuelles : fiabilité des données (synthèse, détail par règle), traçabilité d'une commande ou d'un lot, relance des contrôles, indicateurs OMS avec le détail des lignes en échec, détection des dérives, analyse des causes, plan d'actions, et prévision de la charge de préparation avec le besoin en renfort. C'est l'ensemble des capacités prévues : il n'y a pas d'autre fonction « à venir »."""
 
 
 class ReponseModele:

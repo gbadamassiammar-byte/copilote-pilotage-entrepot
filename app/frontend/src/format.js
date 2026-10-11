@@ -65,4 +65,5 @@ export const LIBELLES_OUTILS = {
   analyser_derive: "Analyse d'une dérive",
   plan_actions: "Plan d'actions",
   creer_action: "Création d'action",
+  prevision_charge: "Prévision de charge",
 };

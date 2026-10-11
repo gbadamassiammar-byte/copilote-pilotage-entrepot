@@ -178,6 +178,7 @@ table { border-collapse: collapse; width: 100%; font-size: 12px; }
 th { position: sticky; top: 0; background: var(--surface-2); text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--bord); cursor: pointer; white-space: nowrap; user-select: none; }
 td { padding: 6px 8px; border-bottom: 1px solid var(--ligne); vertical-align: top; }
 td.nombre { text-align: right; font-variant-numeric: tabular-nums; }
+th.nombre { text-align: right; }
 tr.cliquable { cursor: pointer; } tr.cliquable:hover td { background: var(--survol); }
 .vide { color: var(--vide); }
 .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: var(--neutre-fond); }

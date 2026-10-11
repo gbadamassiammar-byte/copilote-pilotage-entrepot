@@ -527,6 +527,43 @@ class EntrepotBigQuery:
             raise ErreurDonnees(f"La dérive {derive_id} est introuvable.")
         return self.lean_derive(derive_id)
 
+    # ------------------------------------------------------------------
+    # Prévision de charge (couche 7)
+    # ------------------------------------------------------------------
+    def prevision_charge(self):
+        return self._requete("""
+            SELECT jour, equipe, jour_ouvre, libelle_ferie,
+                   lignes_prevues, borne_basse, borne_haute,
+                   productivite, heures_par_poste, personnes_habituelles,
+                   heures_habituelles, heures_necessaires, heures_haute, ecart_heures,
+                   ecart_etp, renfort_etp, renfort_securite_etp
+            FROM sc_ml.prevision_charge
+            ORDER BY jour, equipe
+        """)
+
+    def prevision_qualite(self):
+        return self._requete("SELECT * FROM sc_ml.qualite_prevision ORDER BY equipe")
+
+    def prevision_backtest(self, equipe="TOUS"):
+        return self._requete("""
+            SELECT jour, reel, prevu, borne_basse, borne_haute, naive
+            FROM sc_ml.backtest_charge
+            WHERE equipe = @e AND jour_ouvre
+            ORDER BY jour
+        """, [("e", "STRING", equipe)])
+
+    def prevision_modele(self):
+        return self._requete("SELECT * FROM sc_ml.modele_charge_info ORDER BY equipe")
+
+    def prevision_historique(self, equipe="TOUS", jours=120):
+        return self._requete("""
+            SELECT jour, lignes
+            FROM sc_ml.historique_charge
+            WHERE equipe = @e AND jour > DATE_SUB((SELECT MAX(jour) FROM sc_ml.historique_charge), INTERVAL @j DAY)
+            ORDER BY jour
+        """, [("e", "STRING", equipe), ("j", "INT64", int(jours))])
+
+
     def tracer_commande(self, identifiant):
         cmd = normaliser_commande(identifiant)
         p = [("c", "STRING", cmd)]

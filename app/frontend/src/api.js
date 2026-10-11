@@ -55,6 +55,8 @@ export const api = {
   actions: () => appel("/api/lean/actions"),
   creerAction: (champs) => appel("/api/lean/actions", { method: "POST", body: JSON.stringify(champs) }),
   majAction: (id, champs) => appel(`/api/lean/actions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(champs) }),
+  prevision: (equipe) => appel(`/api/prevision?equipe=${encodeURIComponent(equipe || "TOUS")}`),
+  previsionQualite: () => appel("/api/prevision/qualite"),
 };
 
 function parametres(p) {

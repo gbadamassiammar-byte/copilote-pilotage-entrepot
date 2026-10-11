@@ -5,7 +5,7 @@ utilisé depuis une interface React. Les données restent dans BigQuery ; l'hist
 des conversations va dans Firestore.
 
 ```
-Navigateur : React (pages Copilote, Fiabilité, KPI, Dérives et actions, puis Prévision)
+Navigateur : React (pages Copilote, Fiabilité, KPI, Dérives et actions, Prévision)
       |  HTTP + JSON (API REST)
       v
 Flask (backend/app.py)  ---- l'agent (agent.py) ---->  Gemini sur Vertex AI (europe-west1)
@@ -19,7 +19,7 @@ Firestore                     outils.py -> entrepot.py -> BigQuery (requêtes é
 
 1. Flask reçoit la question (`POST /api/chat`) et relit l'historique de la conversation dans Firestore.
 2. L'agent envoie à Gemini : ses instructions (rôle, contexte pharma, règles de conduite), la description
-   des 12 outils, l'historique et la question.
+   des 13 outils, l'historique et la question.
 3. Gemini répond soit par du texte, soit par une demande d'outil (« appelle `detail_anomalies` avec
    `regle_id = DQ_CNF_002` »).
 4. Python exécute l'outil : une requête BigQuery préparée, paramétrée et plafonnée en volume.
@@ -41,6 +41,7 @@ Firestore                     outils.py -> entrepot.py -> BigQuery (requêtes é
 | `analyser_derive` | Carte de contrôle et analyse des contributions : où se concentre l'excès d'échecs |
 | `plan_actions` | Actions correctives et leur efficacité mesurée |
 | `creer_action` | Ecrit une action dans `sc_lean.actions` (sur demande explicite uniquement) |
+| `prevision_charge` | Charge prévue sur 4 semaines par jour et équipe, traduite en heures et en renfort (intérim) |
 | `lancer_controles` | Relance la procédure `sc_dq.executer_controles` (sur demande explicite uniquement) |
 
 Le calcul des KPI côté Python (`kpi.py`) est partagé entre l'agent, la page KPI et le mode démo :
@@ -61,6 +62,11 @@ BigQuery renvoie des sommes de numérateurs et dénominateurs, Python fait la di
 | `GET /api/lean/actions` | Plan d'actions avec efficacité |
 | `POST /api/lean/actions` | Nouvelle action (cause, action, responsable, échéance, date d'effet) |
 | `PATCH /api/lean/actions/<id>` | Suivi : statut, commentaire, échéance, date d'effet |
+
+| Endpoint prévision | Rôle |
+|---|---|
+| `GET /api/prevision?equipe=` | Charge prévue, besoin en renfort, courbe réel + prévision |
+| `GET /api/prevision/qualite` | Backtest (WAPE modèle contre méthode naïve) et caractéristiques du modèle |
 
 Les écritures (actions, statuts) passent par des requêtes DML BigQuery paramétrées : quelques Ko par opération.
 En mode démo, elles restent en mémoire et disparaissent au redémarrage.
@@ -132,6 +138,7 @@ Tests automatiques (sans réseau) : `python -m pytest -q` dans `app\backend`.
 | « Historique : mémoire » dans la barre | Base Firestore absente | Créer la base (commande ci-dessus), relancer Flask |
 | « Gemini est momentanément saturé » | Quota de requêtes | Attendre une minute |
 | Erreur BigQuery `Not found: Table sc_dq...` | Couche 3 non installée | Exécuter `sql/04` à `06` puis `CALL sc_dq.executer_controles(NULL)` |
+| « La prévision n'a pas encore été calculée » ou `Not found: Table sc_ml.prevision_charge` | Couche 7 non installée | Exécuter `sql/09_prevision.sql` puis `CALL sc_ml.prevoir_charge();` |
 | « La dérive ... n'existe pas » ou `Not found: Table sc_lean.cartes_controle` | Couche 6 non installée | Exécuter `sql/08_lean.sql` puis `CALL sc_lean.detecter_derives();` |
 | « Les KPI n'ont pas encore été calculés » ou `Not found: Table sc_kpi.kpi_jour` | Couche 5 non installée | Exécuter `sql/07_kpi.sql` puis `CALL sc_kpi.calculer_kpi();` et relancer Flask |
 

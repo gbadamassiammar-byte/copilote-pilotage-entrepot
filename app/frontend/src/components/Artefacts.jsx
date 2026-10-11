@@ -22,6 +22,7 @@ export function Artefact({ a, onAction }) {
     case "indicateurs": return <Indicateurs a={a} onAction={onAction} />;
     case "courbes": return <Courbes a={a} />;
     case "carte_controle": return <CarteControle a={a} />;
+    case "prevision": return <Prevision a={a} />;
     case "barres": return <Barres a={a} />;
     case "tableau": return <Tableau a={a} onAction={onAction} />;
     case "chronologie": return <Chronologie a={a} />;
@@ -142,6 +143,43 @@ function CarteControle({ a }) {
   );
 }
 
+// Prévision : historique réel (trait plein) puis prévision (pointillé) avec bande d'intervalle.
+function Prevision({ a }) {
+  const g = couleursGraphes(useTheme().theme);
+  const donnees = useMemo(() => {
+    const m = new Map();
+    for (const h of a.historique || []) m.set(h.x, { x: h.x, reel: h.reel });
+    for (const p of a.prevision || []) {
+      const e = m.get(p.x) || { x: p.x };
+      e.prevu = p.prevu; e.bande = p.bande; m.set(p.x, e);
+    }
+    return [...m.values()].sort((u, v) => (u.x < v.x ? -1 : 1));
+  }, [a.historique, a.prevision]);
+  if (!donnees.length) return null;
+  const debutPrev = a.prevision?.[0]?.x;
+  return (
+    <section className="carte">
+      <h3>{a.titre}</h3>
+      <ResponsiveContainer width="100%" height={260}>
+        <ComposedChart data={donnees} margin={{ left: 0, right: 16, top: 6, bottom: 0 }}>
+          <CartesianGrid stroke={g.grille} vertical={false} />
+          {debutPrev && <ReferenceArea x1={debutPrev} x2={donnees[donnees.length - 1].x} fill={g.palette[0]} fillOpacity={0.05} stroke="none" />}
+          <XAxis dataKey="x" tickFormatter={(x) => etiquettePeriode(x, "jour")} fontSize={11} stroke={g.axe} minTickGap={24} />
+          <YAxis fontSize={11} stroke={g.axe} width={48} tickFormatter={(v) => v.toLocaleString("fr-FR")} />
+          <Tooltip {...styleInfobulle(g)} labelFormatter={(x) => etiquettePeriode(x, "jour")}
+                   formatter={(v, nom) => (Array.isArray(v)
+                     ? [`${v[0].toLocaleString("fr-FR")} à ${v[1].toLocaleString("fr-FR")}`, "Intervalle 90 %"]
+                     : [v?.toLocaleString("fr-FR"), nom === "reel" ? "Réel" : "Prévu"])} />
+          <Area dataKey="bande" stroke="none" fill={g.palette[0]} fillOpacity={0.15} name="Intervalle" isAnimationActive={false} />
+          <Line dataKey="reel" stroke={g.palette[0]} strokeWidth={2} dot={false} name="reel" connectNulls={false} isAnimationActive={false} />
+          <Line dataKey="prevu" stroke={g.palette[0]} strokeWidth={2} strokeDasharray="5 4" dot={false} name="prevu" connectNulls={false} isAnimationActive={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+      {a.note && <p className="note">{a.note}</p>}
+    </section>
+  );
+}
+
 function Barres({ a }) {
   const g = couleursGraphes(useTheme().theme);
   const donnees = [...(a.donnees || [])].sort((x, y) => y.valeur - x.valeur);
@@ -226,7 +264,8 @@ function Tableau({ a, onAction }) {
           <thead>
             <tr>
               {a.colonnes.map((c) => (
-                <th key={c.cle} onClick={() => setTri((t) => ({ cle: c.cle, sens: t?.cle === c.cle ? -t.sens : 1 }))}>
+                <th key={c.cle} className={c.format === "nombre" || c.format === "kpi" ? "nombre" : ""}
+                    onClick={() => setTri((t) => ({ cle: c.cle, sens: t?.cle === c.cle ? -t.sens : 1 }))}>
                   {c.label}{tri?.cle === c.cle ? (tri.sens > 0 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
