@@ -61,6 +61,18 @@ class HistoriqueMemoire:
             c["maj"] = maintenant()
             return conv_id
 
+    def renommer(self, conv_id, titre):
+        with self.verrou:
+            c = self.conv.get(conv_id)
+            if not c:
+                return False
+            c["titre"] = titre
+            return True
+
+    def supprimer(self, conv_id):
+        with self.verrou:
+            return self.conv.pop(conv_id, None) is not None
+
 
 class HistoriqueFirestore:
     nom = "firestore"
@@ -100,6 +112,24 @@ class HistoriqueFirestore:
                                              "outils": reponse["outils"], "usage": reponse["usage"]})
         lot.commit()
         return conv_id
+
+    def renommer(self, conv_id, titre):
+        ref = self.col.document(conv_id)
+        if not ref.get().exists:
+            return False
+        ref.update({"titre": titre})
+        return True
+
+    def supprimer(self, conv_id):
+        ref = self.col.document(conv_id)
+        if not ref.get().exists:
+            return False
+        # Firestore ne supprime pas une sous-collection avec le document : on retire
+        # d'abord les messages un par un, puis le document de la conversation.
+        for m in ref.collection("messages").stream():
+            m.reference.delete()
+        ref.delete()
+        return True
 
 
 class HistoriqueResilient:
@@ -142,3 +172,9 @@ class HistoriqueResilient:
 
     def ajouter_echange(self, conv_id, question, reponse):
         return self._appel("ajouter_echange", conv_id, question, reponse)
+
+    def renommer(self, conv_id, titre):
+        return self._appel("renommer", conv_id, titre)
+
+    def supprimer(self, conv_id):
+        return self._appel("supprimer", conv_id)

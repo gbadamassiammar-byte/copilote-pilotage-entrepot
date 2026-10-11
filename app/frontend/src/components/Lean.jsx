@@ -115,12 +115,12 @@ export function DeriveTiroir({ id, onFerme, onChange }) {
             <div className="entete-carte">
               <h3>Analyse des causes</h3>
               <button className="bouton" onClick={demanderAnalyse} disabled={analyse.etat === "attente"}>
-                {analyse.etat === "attente" ? "Le copilote analyse..." : "Demander au copilote"}
+                {analyse.etat === "attente" ? "Logix analyse..." : "Demander a Logix"}
               </button>
             </div>
             {d.analyse_causes && analyse.etat !== "ok" && <div className="analyse"><ReactMarkdown>{d.analyse_causes}</ReactMarkdown></div>}
             {!d.analyse_causes && analyse.etat === "repos" && (
-              <p className="note">Le copilote lit la carte de contrôle et les contributions, puis propose des hypothèses à vérifier sur le terrain.</p>
+              <p className="note">Logix lit la carte de contrôle et les contributions, puis propose des hypothèses a verifier sur le terrain.</p>
             )}
             {analyse.etat === "erreur" && <div className="erreur">{analyse.texte}</div>}
             {analyse.etat === "ok" && (
@@ -241,7 +241,7 @@ export function ActionTiroir({ id, onFerme, onChange, onOuvrirDerive }) {
             <h3>{a.action}</h3>
             <p><span className="note">Cause : </span>{a.cause_identifiee}</p>
             <p className="note">
-              Créée par {a.cree_par === "copilote" ? "le copilote" : "l'interface"} le {formater(a.cree_le, "datetime")}
+              Créée par {a.cree_par === "copilote" ? "Logix" : "l'interface"} le {formater(a.cree_le, "datetime")}
               {a.derive && <> pour la dérive <button className="lien-trace" onClick={() => onOuvrirDerive?.(a.derive_id)}>{a.derive_id}</button></>}
             </p>
           </section>

@@ -28,6 +28,10 @@ export default function Copilote() {
   const [etape, setEtape] = useState(0);
   const [erreur, setErreur] = useState(null);
   const [tiroir, setTiroir] = useState(null);             // {type: "derive" | "action", id}
+  const [menuId, setMenuId] = useState(null);             // conversation dont le menu (...) est ouvert
+  const [renommeId, setRenommeId] = useState(null);       // conversation en cours de renommage
+  const [renommeTexte, setRenommeTexte] = useState("");
+  const [supprimeId, setSupprimeId] = useState(null);     // conversation dont on confirme la suppression
   const finRef = useRef(null);
 
   const rafraichirListe = () => api.conversations().then(setConversations).catch(() => {});
@@ -80,6 +84,29 @@ export default function Copilote() {
     setConvId(null); setMessages([]); setSelection(null); setErreur(null);
   }
 
+  function demarrerRenommer(c) {
+    setMenuId(null); setRenommeId(c.id); setRenommeTexte(c.titre);
+  }
+  async function validerRenommer() {
+    const id = renommeId;
+    const titre = renommeTexte.trim();
+    setRenommeId(null);
+    if (!id || !titre) return;
+    const actuel = conversations.find((c) => c.id === id);
+    if (actuel && titre === actuel.titre) return;
+    try { await api.renommerConversation(id, titre); rafraichirListe(); }
+    catch (e) { setErreur(e.message); }
+  }
+  async function confirmerSupprimer() {
+    const id = supprimeId;
+    setSupprimeId(null);
+    try {
+      await api.supprimerConversation(id);
+      if (id === convId) nouvelle();
+      rafraichirListe();
+    } catch (e) { setErreur(e.message); }
+  }
+
   const affiche = selection !== null ? messages[selection] : null;
 
   return (
@@ -88,21 +115,44 @@ export default function Copilote() {
         <button className="bouton principal plein" onClick={nouvelle}>+ Nouvelle conversation</button>
         <div className="liste-conv">
           {conversations.map((c) => (
-            <button key={c.id} className={`conv ${c.id === convId ? "active" : ""}`} onClick={() => ouvrir(c.id)} title={c.titre}>
-              <span>{c.titre}</span>
-              <small>{formater(c.maj, "datetime")}</small>
-            </button>
+            <div key={c.id} className={`conv ${c.id === convId ? "active" : ""} ${renommeId === c.id ? "edition" : ""}`}>
+              {renommeId === c.id ? (
+                <input className="conv-edition" autoFocus value={renommeTexte} maxLength={80}
+                       onChange={(e) => setRenommeTexte(e.target.value)}
+                       onBlur={validerRenommer}
+                       onKeyDown={(e) => {
+                         if (e.key === "Enter") { e.preventDefault(); validerRenommer(); }
+                         if (e.key === "Escape") { setRenommeId(null); }
+                       }} />
+              ) : (
+                <button className="conv-ouvrir" onClick={() => ouvrir(c.id)} title={c.titre}>
+                  <span className="conv-titre">{c.titre}</span>
+                  <small>{formater(c.maj, "datetime")}</small>
+                </button>
+              )}
+              {renommeId !== c.id && (
+                <button className="conv-menu" aria-label="Options de la conversation"
+                        onClick={(e) => { e.stopPropagation(); setMenuId(menuId === c.id ? null : c.id); }}>⋯</button>
+              )}
+              {menuId === c.id && (
+                <div className="menu-conv" role="menu">
+                  <button role="menuitem" onClick={() => demarrerRenommer(c)}>Renommer</button>
+                  <button role="menuitem" className="danger" onClick={() => { setMenuId(null); setSupprimeId(c.id); }}>Supprimer</button>
+                </div>
+              )}
+            </div>
           ))}
           {!conversations.length && <p className="note">Aucune conversation enregistrée.</p>}
         </div>
       </aside>
+      {menuId && <div className="voile-menu" onClick={() => setMenuId(null)} />}
 
       <section className="discussion">
         <div className="fil">
           {!messages.length && (
             <div className="accueil">
               <h1>Bonjour, que voulez-vous vérifier ?</h1>
-              <p>Le copilote interroge les données de l'entrepôt dans BigQuery et cite toujours ses sources.</p>
+              <p>Logix interroge les données de l'entrepôt dans BigQuery et cite toujours ses sources.</p>
               <div className="suggestions">
                 {SUGGESTIONS.map((s) => <button key={s} onClick={() => envoyer(s)}>{s}</button>)}
               </div>
@@ -154,7 +204,7 @@ export default function Copilote() {
           </>
         ) : (
           <div className="panneau-vide">
-            <p>Les tableaux, graphiques et fiches de traçabilité trouvés par le copilote s'afficheront ici.</p>
+            <p>Les tableaux, graphiques et fiches de traçabilité trouvés par Logix s'afficheront ici.</p>
             <p className="note">Cliquez sur un numéro de commande ou de lot dans un tableau pour ouvrir sa traçabilité.</p>
           </div>
         )}
@@ -162,6 +212,18 @@ export default function Copilote() {
       {tiroir?.type === "derive" && <DeriveTiroir id={tiroir.id} onFerme={() => setTiroir(null)} />}
       {tiroir?.type === "action" && (
         <ActionTiroir id={tiroir.id} onFerme={() => setTiroir(null)} onOuvrirDerive={(id) => setTiroir({ type: "derive", id })} />
+      )}
+      {supprimeId && (
+        <div className="voile" onClick={() => setSupprimeId(null)}>
+          <div className="modale" onClick={(e) => e.stopPropagation()}>
+            <h2>Supprimer la conversation ?</h2>
+            <p className="note">Cette action est définitive, la conversation et ses messages seront effacés.</p>
+            <div className="actions-modale">
+              <button className="bouton" onClick={() => setSupprimeId(null)}>Annuler</button>
+              <button className="bouton principal danger" onClick={confirmerSupprimer}>Supprimer</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -38,6 +38,10 @@ export const api = {
     appel("/api/chat", { method: "POST", body: JSON.stringify({ question, conversation_id }) }),
   conversations: () => appel("/api/conversations"),
   conversation: (id) => appel(`/api/conversations/${encodeURIComponent(id)}`),
+  renommerConversation: (id, titre) =>
+    appel(`/api/conversations/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ titre }) }),
+  supprimerConversation: (id) =>
+    appel(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   synthese: () => appel("/api/fiabilite/synthese"),
   anomalies: (regle, limite = 100) =>
     appel(`/api/fiabilite/anomalies?regle=${encodeURIComponent(regle)}&limite=${limite}`),

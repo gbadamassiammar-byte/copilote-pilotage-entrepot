@@ -6,6 +6,8 @@ Endpoints :
   POST /api/chat                         {question, conversation_id?} -> réponse de l'agent
   GET  /api/conversations                liste des conversations
   GET  /api/conversations/<id>           messages d'une conversation
+  PATCH  /api/conversations/<id>         {titre} renomme une conversation
+  DELETE /api/conversations/<id>         supprime une conversation
   GET  /api/fiabilite/synthese           bilan des contrôles
   GET  /api/fiabilite/anomalies?regle=   détail d'une règle
   POST /api/fiabilite/lancer             {regle_id?} relance les contrôles
@@ -145,6 +147,22 @@ def creer_app(entrepot=None, moteur=None, historique=None):
         if msgs is None:
             return erreur("Conversation introuvable.", 404)
         return jsonify(msgs)
+
+    @app.patch("/api/conversations/<conv_id>")
+    def renommer_conversation(conv_id):
+        titre = ((request.get_json(silent=True) or {}).get("titre") or "").strip()
+        if not titre:
+            return erreur("Le titre est vide.", 400)
+        titre = titre[:80]
+        if not historique.renommer(conv_id, titre):
+            return erreur("Conversation introuvable.", 404)
+        return jsonify({"id": conv_id, "titre": titre})
+
+    @app.delete("/api/conversations/<conv_id>")
+    def supprimer_conversation(conv_id):
+        if not historique.supprimer(conv_id):
+            return erreur("Conversation introuvable.", 404)
+        return ("", 204)
 
     @app.get("/api/fiabilite/synthese")
     def synthese():

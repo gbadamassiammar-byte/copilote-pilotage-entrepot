@@ -93,13 +93,16 @@ button { font: inherit; cursor: pointer; }
 .pastille::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .pastille.verte { color: #5eead4; } .pastille.orange { color: #fdba74; } .pastille.rouge { color: #fca5a5; }
 .detail-etat { opacity: .7; }
-.bascule-theme { margin-top: 6px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.18); background: transparent;
-  color: var(--barre-texte); border-radius: 8px; padding: 6px 10px; font-size: 12px; text-align: left; }
-.bascule-theme:hover { background: rgba(255,255,255,.06); }
-.bascule-theme .piste { width: 28px; height: 16px; border-radius: 99px; background: rgba(255,255,255,.2); position: relative; flex: none; }
-.bascule-theme .piste::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: white; transition: transform .2s; }
-.bascule-theme[aria-pressed="true"] .piste { background: var(--accent); }
-.bascule-theme[aria-pressed="true"] .piste::after { transform: translateX(12px); }
+.bascule-theme { margin-top: 8px; position: relative; display: inline-flex; align-items: center; width: 60px; height: 28px;
+  padding: 3px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); cursor: pointer; }
+.bascule-theme:hover { background: rgba(255,255,255,.14); }
+.bascule-theme .bascule-icone { position: relative; z-index: 1; flex: 1; display: grid; place-items: center; height: 22px;
+  color: rgba(255,255,255,.55); transition: color .2s; }
+.bascule-theme .bascule-curseur { position: absolute; top: 3px; left: 3px; width: 26px; height: 20px; border-radius: 999px;
+  background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s; }
+.bascule-theme[aria-checked="true"] .bascule-curseur { transform: translateX(26px); }
+.bascule-theme[aria-checked="false"] .soleil { color: #0f172a; }
+.bascule-theme[aria-checked="true"] .lune { color: #0f172a; }
 
 .contenu { overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
 .bandeau { background: var(--bandeau-fond); color: var(--bandeau-texte); border-bottom: 1px solid var(--bandeau-bord); padding: 6px 16px; font-size: 12px; }
@@ -115,10 +118,23 @@ button { font: inherit; cursor: pointer; }
 .copilote { display: grid; grid-template-columns: 220px minmax(380px, 1fr) minmax(420px, 46%); height: 100%; min-height: 0; flex: 1; }
 .historique { border-right: 1px solid var(--bord); background: var(--surface); padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .liste-conv { overflow: auto; display: flex; flex-direction: column; gap: 2px; }
-.conv { text-align: left; border: 0; background: transparent; padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
-.conv span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.conv small { color: var(--texte-doux); font-size: 11px; }
+.conv { position: relative; border-radius: 8px; display: flex; align-items: center; }
 .conv:hover { background: var(--fond); } .conv.active { background: var(--accent-clair); }
+.conv-ouvrir { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; color: inherit; padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.conv-titre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.conv-ouvrir small { color: var(--texte-doux); font-size: 11px; }
+.conv-menu { flex: none; opacity: 0; border: 0; background: transparent; color: var(--texte-doux); cursor: pointer; padding: 2px 7px; margin-right: 4px; border-radius: 6px; font-size: 16px; line-height: 1; }
+.conv:hover .conv-menu, .conv:focus-within .conv-menu, .conv.active .conv-menu { opacity: 1; }
+.conv-menu:hover { background: var(--survol); color: var(--texte); }
+.conv-edition { flex: 1; min-width: 0; margin: 2px; border: 1px solid var(--accent); background: var(--champ); color: var(--texte); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.menu-conv { position: absolute; right: 6px; top: calc(100% - 2px); z-index: 20; min-width: 140px; background: var(--surface); border: 1px solid var(--bord); border-radius: 8px; box-shadow: 0 6px 20px var(--ombre); padding: 4px; display: flex; flex-direction: column; }
+.menu-conv button { text-align: left; border: 0; background: transparent; color: var(--texte); padding: 8px 10px; border-radius: 6px; font: inherit; cursor: pointer; }
+.menu-conv button:hover { background: var(--survol); }
+.menu-conv button.danger { color: var(--critique); }
+.menu-conv button.danger:hover { background: var(--critique-fond); }
+.voile-menu { position: fixed; inset: 0; z-index: 10; }
+.actions-modale { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.bouton.principal.danger { background: var(--critique); border-color: var(--critique); color: #fff; }
 
 .discussion { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .fil { flex: 1; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
