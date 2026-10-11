@@ -1,0 +1,5 @@
+flask>=3.0
+gunicorn>=22.0
+google-cloud-bigquery>=3.20
+google-cloud-firestore>=2.16
+google-genai>=1.40

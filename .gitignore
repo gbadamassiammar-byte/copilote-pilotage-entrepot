@@ -1,3 +1,8 @@
 .venv/
 donnees/
 __pycache__/
+.pytest_cache/
+node_modules/
+app/frontend/dist/
+app/backend/static/
+.env

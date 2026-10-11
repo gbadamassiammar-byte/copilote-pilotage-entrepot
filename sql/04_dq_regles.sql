@@ -25,7 +25,7 @@ USING (
   STRUCT(
     'DQ_UNI_001' AS regle_id,
     'Commande en double (même numéro)' AS libelle,
-    'Le même numéro de commande apparaît plusieurs fois, typiquement après une double intégration de l interface. Gonfle les volumes et fausse tous les KPI calculés par commande.' AS description,
+    'Le même numéro de commande apparaît plusieurs fois, typiquement après une double intégration de l’interface. Gonfle les volumes et fausse tous les KPI calculés par commande.' AS description,
     'UNICITE' AS dimension, 'commandes' AS table_cible, 'MAJEURE' AS severite,
     """
 SELECT commande_id AS cle_ligne,
@@ -37,7 +37,7 @@ HAVING COUNT(*) > 1
 
   STRUCT(
     'DQ_UNI_002', 'Ligne de commande en double (même identifiant)',
-    'La même ligne de commande est présente plusieurs fois. Elle serait comptée deux fois dans l OTIF et le taux de service.',
+    'La même ligne de commande est présente plusieurs fois. Elle serait comptée deux fois dans l’OTIF et le taux de service.',
     'UNICITE', 'lignes_commande', 'MAJEURE',
     """
 SELECT ligne_id AS cle_ligne,
@@ -61,7 +61,7 @@ HAVING COUNT(*) > 1
 
   STRUCT(
     'DQ_UNI_004', 'Commande ressaisie sous un autre numéro (doublon métier)',
-    'Deux commandes du même donneur d ordre, pour le même destinataire, avec exactement les mêmes articles et quantités, créées à moins de 30 minutes d intervalle. Risque de double expédition. La commande signalée est la plus récente.',
+    'Deux commandes du même donneur d’ordre, pour le même destinataire, avec exactement les mêmes articles et quantités, créées à moins de 30 minutes d’intervalle. Risque de double expédition. La commande signalée est la plus récente.',
     'UNICITE', 'commandes', 'MAJEURE',
     """
 WITH c AS (
@@ -95,7 +95,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY b.commande_id ORDER BY a.date_creation) 
   -- -------------------------------------------------------------------
   STRUCT(
     'DQ_COM_001', 'Ligne livrée sans date de livraison',
-    'La ligne est au statut LIVREE mais la preuve de livraison n a pas de date. La ligne sort du calcul de l OTIF, qui devient flatteur.',
+    'La ligne est au statut LIVREE mais la preuve de livraison n’a pas de date. La ligne sort du calcul de l’OTIF, qui devient flatteur.',
     'COMPLETUDE', 'lignes_commande', 'MAJEURE',
     """
 SELECT ligne_id AS cle_ligne,
@@ -106,7 +106,7 @@ GROUP BY ligne_id
     """),
 
   STRUCT(
-    'DQ_COM_002', 'Ligne expédiée sans date d expédition',
+    'DQ_COM_002', 'Ligne expédiée sans date d’expédition',
     'La ligne est expédiée ou livrée mais sa date de sortie physique est vide : impossible de mesurer le délai de préparation ni de rattacher la ligne à un créneau.',
     'COMPLETUDE', 'lignes_commande', 'MINEURE',
     """
@@ -119,7 +119,7 @@ GROUP BY ligne_id
 
   STRUCT(
     'DQ_COM_003', 'Interruption des relevés de température',
-    'Plus de 20 minutes sans relevé pour une sonde qui enregistre toutes les 15 minutes. Une période non enregistrée ne peut pas être justifiée lors d un audit BPD.',
+    'Plus de 20 minutes sans relevé pour une sonde qui enregistre toutes les 15 minutes. Une période non enregistrée ne peut pas être justifiée lors d’un audit BPD.',
     'COMPLETUDE', 'releves_temperature', 'MAJEURE',
     """
 SELECT CONCAT(capteur_id, '|', FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%S%Ez', TIMESTAMP_ADD(horodatage, INTERVAL 15 MINUTE), 'Europe/Paris')) AS cle_ligne,
@@ -152,7 +152,7 @@ GROUP BY c.commande_id
 
   STRUCT(
     'DQ_COH_002', 'Statut de ligne non mis à jour après livraison',
-    'La ligne est encore au statut EXPEDIEE alors qu une date de livraison existe. La ligne disparaît des KPI de service.',
+    'La ligne est encore au statut EXPEDIEE alors qu’une date de livraison existe. La ligne disparaît des KPI de service.',
     'COHERENCE', 'lignes_commande', 'MINEURE',
     """
 SELECT ligne_id AS cle_ligne,
@@ -164,8 +164,8 @@ GROUP BY ligne_id
     """),
 
   STRUCT(
-    'DQ_COH_003', 'Livraison datée avant l expédition',
-    'La date de livraison est antérieure à la date d expédition : au moins une des deux dates est fausse, et le délai de livraison calculé est négatif.',
+    'DQ_COH_003', 'Livraison datée avant l’expédition',
+    'La date de livraison est antérieure à la date d’expédition : au moins une des deux dates est fausse, et le délai de livraison calculé est négatif.',
     'COHERENCE', 'lignes_commande', 'MAJEURE',
     """
 SELECT ligne_id AS cle_ligne,
@@ -178,7 +178,7 @@ GROUP BY ligne_id
 
   STRUCT(
     'DQ_COH_004', 'Séquence de statuts impossible',
-    'Dans l historique, un statut apparaît après un statut plus avancé (ex : LIVREE horodaté avant EXPEDIEE). Les temps de cycle calculés sur cette commande sont faux.',
+    'Dans l’historique, un statut apparaît après un statut plus avancé (ex : LIVREE horodaté avant EXPEDIEE). Les temps de cycle calculés sur cette commande sont faux.',
     'COHERENCE', 'historique_statuts', 'MINEURE',
     """
 WITH e AS (
@@ -204,7 +204,7 @@ GROUP BY entite_id
 
   STRUCT(
     'DQ_COH_005', 'Ecart de stock non expliqué par les mouvements',
-    'Pour un lot et un jour : stock de la veille + mouvements du jour différent du stock du jour. Signe d un mouvement non enregistré (perte, vol, erreur de saisie). Les mouvements en double sont neutralisés avant le calcul, et le contrôle s arrête à la dernière photo de stock disponible.',
+    'Pour un lot et un jour : stock de la veille + mouvements du jour différent du stock du jour. Signe d’un mouvement non enregistré (perte, vol, erreur de saisie). Les mouvements en double sont neutralisés avant le calcul, et le contrôle s’arrête à la dernière photo de stock disponible.',
     'COHERENCE', 'mouvements_stock', 'CRITIQUE',
     """
 WITH photo AS (
@@ -247,7 +247,7 @@ WHERE COALESCE(p.q, 0) - COALESCE(pv.q, 0) != COALESCE(m.q, 0)
   -- -------------------------------------------------------------------
   STRUCT(
     'DQ_EXA_001', 'Quantité expédiée supérieure à la quantité préparée',
-    'On ne peut pas expédier plus que ce qui a été prélevé : l une des deux quantités est fausse, et le taux de service est surestimé.',
+    'On ne peut pas expédier plus que ce qui a été prélevé : l’une des deux quantités est fausse, et le taux de service est surestimé.',
     'EXACTITUDE', 'lignes_commande', 'MAJEURE',
     """
 SELECT ligne_id AS cle_ligne,
@@ -260,7 +260,7 @@ GROUP BY ligne_id
 
   STRUCT(
     'DQ_EXA_002', 'Ligne de commande sur un article inconnu',
-    'L article de la ligne n existe pas dans le référentiel articles (référence orpheline) : la ligne ne peut être rattachée ni à un donneur d ordre, ni à une zone de stockage.',
+    'L article de la ligne n’existe pas dans le référentiel articles (référence orpheline) : la ligne ne peut être rattachée ni à un donneur d’ordre, ni à une zone de stockage.',
     'EXACTITUDE', 'lignes_commande', 'MAJEURE',
     """
 SELECT l.ligne_id AS cle_ligne,
@@ -276,7 +276,7 @@ GROUP BY l.ligne_id
   -- -------------------------------------------------------------------
   STRUCT(
     'DQ_CNF_001', 'Prélèvement ne respectant pas le FEFO',
-    'Un lot a été prélevé alors qu un autre lot du même article, libre, disponible toute la journée et avec une durée de vie résiduelle suffisante, périmait plus tôt. Contrôle approché à partir des photos de stock de la veille et du jour.',
+    'Un lot a été prélevé alors qu’un autre lot du même article, libre, disponible toute la journée et avec une durée de vie résiduelle suffisante, périmait plus tôt. Contrôle approché à partir des photos de stock de la veille et du jour.',
     'CONFORMITE', 'preparations', 'MAJEURE',
     """
 WITH dispo AS (
@@ -314,7 +314,7 @@ GROUP BY t.tache_id
     """),
 
   STRUCT(
-    'DQ_CNF_002', 'Prélèvement d un lot rappelé',
+    'DQ_CNF_002', 'Prélèvement d’un lot rappelé',
     'Un lot visé par un rappel a été prélevé à partir du jour du rappel. Chaque boîte concernée doit être retrouvée chez le destinataire : écart critique au regard des BPD.',
     'CONFORMITE', 'preparations', 'CRITIQUE',
     """
@@ -345,7 +345,7 @@ WHERE r.decision_rp IS NULL OR r.decision_rp = 'EN_ATTENTE'
 
   STRUCT(
     'DQ_CNF_004', 'Retour hors délai remis en stock',
-    'Retour d un destinataire sans autorisation de distribution en gros, reçu plus de 5 jours après l expédition d origine, et pourtant remis en stock vendable. Les BPD n autorisent la remise en stock que dans ce délai.',
+    'Retour d’un destinataire sans autorisation de distribution en gros, reçu plus de 5 jours après l’expédition d’origine, et pourtant remis en stock vendable. Les BPD n’autorisent la remise en stock que dans ce délai.',
     'CONFORMITE', 'retours', 'CRITIQUE',
     """
 WITH remises AS (
@@ -367,7 +367,7 @@ WHERE NOT d.autorisation_gros
 
   STRUCT(
     'DQ_CNF_005', 'Lot stocké dans une zone de température incompatible',
-    'La plage de température qualifiée de la zone ne tient pas dans la plage de conservation de l article (ex : article 2-8 °C en réserve ambiante 15-25 °C).',
+    'La plage de température qualifiée de la zone ne tient pas dans la plage de conservation de l’article (ex : article 2-8 °C en réserve ambiante 15-25 °C).',
     'CONFORMITE', 'stock_photo', 'CRITIQUE',
     """
 SELECT s.lot_id AS cle_ligne,
@@ -386,7 +386,7 @@ GROUP BY s.lot_id
 
   STRUCT(
     'DQ_CNF_006', 'Excursion de température',
-    'Une sonde relève une température hors de la plage qualifiée de sa zone. Chaque épisode doit faire l objet d une investigation et d une décision qualité sur les lots présents.',
+    'Une sonde relève une température hors de la plage qualifiée de sa zone. Chaque épisode doit faire l’objet d’une investigation et d’une décision qualité sur les lots présents.',
     'CONFORMITE', 'releves_temperature', 'CRITIQUE',
     """
 WITH r AS (
