@@ -170,7 +170,8 @@ class Simulation:
             "code_mvt_sap": code, "statut_qualite_origine": st_orig, "statut_qualite_cible": st_cible,
             "quantite": q, "horodatage": fts(t), "ref_document": ref, "operateur_id": op,
             "_charge_le": self.charge_le}
-        if type_mvt == "SORTIE_LIVRAISON" and self.R.random() < self.A["mouvement_perdu"]:
+        # injection limitée aux jours contrôlables (entre la première et la dernière photo de stock)
+        if type_mvt == "SORTIE_LIVRAISON" and C.DEBUT < t.date() < C.FIN and self.R.random() < self.A["mouvement_perdu"]:
             self.v.ajouter("ECART_STOCK_MOUVEMENT_PERDU", "mouvements_stock", f"{lot}|{t.date()}",
                            {"mouvement_id": mid, "emplacement_id": emp, "quantite": q})
             return mid
@@ -297,7 +298,7 @@ class Simulation:
             self.pousser(dt(d, 0), "JOUR", d)
             d += J
         s4 = C.SCENARIOS["S4"]
-        self.pousser(dt(s4["date_rappel"], 9), "RAPPEL")
+        self.pousser(dt(s4["date_rappel"], 0), "RAPPEL")   # rappel effectif dès le début de la journée
         s3 = C.SCENARIOS["S3"]
         self.pousser(dt(s3["debut"], 9), "S3_BLOCAGE")
         self.pousser(dt(s3["fin"], 10), "S3_LIBERATION")
@@ -546,7 +547,9 @@ class Simulation:
             delai = R.uniform(0.2, 0.8) if c["urgent"] else R.uniform(0.3, 2.3) * (1 + 0.5 * (charge - 1))
         else:
             delai = R.uniform(0.5, 4)
-        t, jp, eq, fin, decale = self.fenetre(c["cree"] + timedelta(hours=delai))
+        # la préparation ne peut pas commencer avant la confirmation de la commande
+        debut_min = max(c["cree"] + timedelta(hours=delai), c["confirmee"] + timedelta(minutes=R.uniform(2, 10)))
+        t, jp, eq, fin, decale = self.fenetre(debut_min)
         if decale:
             t += timedelta(hours=R.uniform(0, 5.5))
         c["prep"] = t
@@ -898,7 +901,9 @@ class Simulation:
 
     def evt_RETOUR_ARRIVEE(self, t, rid):
         r = self.retours_attente[rid]
-        r["emp_q"] = self.R.choice(self.ref.emplacements["Z06"])
+        # quarantaine retours : en chambre froide pour les articles 2-8 °C, en zone Z06 sinon
+        zone_q = "Z04" if self.ref.articles[r["art"]]["classe_t"] == "FROID" else "Z06"
+        r["emp_q"] = self.R.choice(self.ref.emplacements[zone_q])
         self.mouvement(t, r["emp_q"], r["lot"], "RETOUR_CLIENT", "655", None, "CONTROLE_QUALITE", r["q"], rid)
         r["recu"] = True
         self.pousser(dt(self.cal.ouvre_suivant(t.date(), self.R.randint(1, 3)), 11), "RETOUR_DECISION", rid)

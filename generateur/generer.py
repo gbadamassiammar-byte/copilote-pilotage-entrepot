@@ -21,7 +21,11 @@ from simulation import Simulation
 
 def temperatures(ecrivain, verite):
     """Relevés des sondes toutes les 15 minutes, avec une excursion en
-    chambre froide et deux coupures d'enregistrement (vérité terrain)."""
+    chambre froide et deux coupures d'enregistrement (vérité terrain).
+    Les sondes horodatent en temps universel (UTC), comme les vrais
+    enregistreurs : pas de trou ni de doublon aux changements d'heure."""
+    from datetime import timezone
+    from outils import PARIS
     R = random.Random(C.GRAINE + 3)
     charge = fts(C.CHARGE_LE)
     exc = C.EXCURSION_TEMPERATURE
@@ -31,11 +35,14 @@ def temperatures(ecrivain, verite):
     for cap, debut, duree in C.TROUS_CAPTEUR:
         verite.ajouter("RELEVES_TEMPERATURE_MANQUANTS", "releves_temperature", f"{cap}|{fts(debut)}",
                        {"duree_min": duree})
+    t0 = datetime.combine(C.DEBUT, datetime.min.time()).replace(tzinfo=PARIS).astimezone(timezone.utc)
+    t1 = C.EXTRACTION.replace(tzinfo=PARIS).astimezone(timezone.utc)
     for cap, zone, moy, sd in C.CAPTEURS:
         bruit = 0.0
-        t = datetime.combine(C.DEBUT, datetime.min.time())
         trous = [(d, d + timedelta(minutes=m)) for c, d, m in C.TROUS_CAPTEUR if c == cap]
-        while t <= C.EXTRACTION:
+        tu = t0
+        while tu <= t1:
+            t = tu.astimezone(PARIS).replace(tzinfo=None)          # heure locale, pour les scénarios
             if not any(a <= t < b for a, b in trous):
                 bruit = 0.85 * bruit + R.gauss(0, sd * 0.5)
                 jour = 0.3 * math.sin((t.hour + t.minute / 60 - 9) / 24 * 2 * math.pi)
@@ -45,9 +52,9 @@ def temperatures(ecrivain, verite):
                     x = (t - exc["debut"]) / (exc_fin - exc["debut"])
                     v = max(v, 8.0 + (exc["pic"] - 8.0) * math.sin(x * math.pi) + 0.1)
                 ecrivain.ecrire("sc_raw.releves_temperature", {
-                    "capteur_id": cap, "zone_id": zone, "horodatage": fts(t),
+                    "capteur_id": cap, "zone_id": zone, "horodatage": f"{tu:%Y-%m-%d %H:%M:%S}+00:00",
                     "temperature_c": round(v, 2), "_charge_le": charge})
-            t += timedelta(minutes=C.PAS_RELEVE_MIN)
+            tu += timedelta(minutes=C.PAS_RELEVE_MIN)
 
 
 def main():

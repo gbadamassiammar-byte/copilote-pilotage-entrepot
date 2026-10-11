@@ -57,11 +57,37 @@ Les paramètres sont dans `generateur/config.py`. Même graine = mêmes données
 Le chargement utilise des jobs de chargement BigQuery, gratuits. Volume : environ 4 millions de
 lignes, sous le palier gratuit de 10 Gio de stockage.
 
+## Etape 3 : outil de fiabilisation
+
+Exécuter dans la console BigQuery : `sql/04_dq_regles.sql` (catalogue de 21 règles),
+`sql/05_dq_procedure.sql` (procédure d'exécution), `sql/06_dq_vues.sql` (vues de lecture), puis :
+
+```sql
+CALL sc_dq.executer_controles(NULL);           -- exécute toutes les règles
+SELECT * FROM sc_dq.v_synthese;                -- bilan par règle
+SELECT * FROM sc_eval.v_evaluation_dq;         -- rappel et précision face à la vérité terrain
+```
+
+Chaque règle est une requête SQL stockée dans `sc_dq.dq_regles` (une ligne par anomalie,
+colonnes `cle_ligne` et `detail`). Ajouter un contrôle = ajouter une ligne, sans modifier la procédure.
+
+| Dimension | Règles |
+|---|---|
+| Unicité | doublons techniques (commandes, lignes, mouvements), doublon métier (commande ressaisie) |
+| Complétude | date de livraison ou d'expédition manquante, interruption des relevés de température |
+| Cohérence | statuts en-tête/lignes, statut non mis à jour, dates inversées, séquence de statuts, écart de stock photo/mouvements |
+| Exactitude | quantité expédiée > préparée, article inconnu |
+| Conformité BPD | FEFO, lot rappelé prélevé, retours (décision RP, délai), zone de température, excursion, lot périmé en stock libre |
+
+Mesure sur les données simulées : 19 règles sur 20 évaluables ont un rappel et une précision
+supérieurs à 99 %. Le contrôle FEFO, approché à partir des photos quotidiennes de stock,
+retrouve 91 % des prélèvements non conformes avec 99,6 % de précision.
+
 ## Feuille de route
 
 1. Modèle de données et DDL  (fait)
-2. Générateur Python de données simulées (anomalies + scénarios de dérive)  <- en cours
-3. Outil 1 de l'agent : fiabilisation des données
+2. Générateur Python de données simulées (anomalies + scénarios de dérive)  (fait)
+3. Outil 1 de l'agent : fiabilisation des données  <- en cours
 4. KPI OMS et traçabilité
 5. Agent Gemini + application Cloud Run
 6. Détection de dérives et prévision (BigQuery ML)
